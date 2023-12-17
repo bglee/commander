@@ -1,2 +1,2 @@
 # commander
-A lightweight command line tool bad for quick command recall
+A lightweight command line tool built for quick command recall
