@@ -4,6 +4,7 @@ use std::{env, fs::File, io::Write};
 
 mod app;
 mod command_list;
+mod commander_environment;
 mod filter;
 mod filter_list;
 

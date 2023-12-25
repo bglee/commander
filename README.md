@@ -12,4 +12,4 @@ A lightweight command line tool built for quick command recall
 - [ ] Create deb package
 - [ ] Create brew package
 - [x] Clean up errors
-- [ ] Clean up tests
+- [x] Clean up tests

@@ -12,8 +12,9 @@ use ratatui::{
 };
 use std::io::{self, stdout};
 
-use crate::command_list::{CommandList, CommanderEnvironment};
 use crate::filter_list::FilterableListState;
+use crate::{command_list::CommandList, commander_environment::CommanderEnvironment};
+
 struct AppContext<'a> {
     list: FilterableListState<'a>,
     run_command: Option<String>,
