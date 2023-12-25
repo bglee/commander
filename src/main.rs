@@ -1,13 +1,13 @@
+use anyhow::Result;
 use app::app;
 use std::{env, fs::File, io::Write};
 
 mod app;
 mod command_list;
-mod commander_error;
 mod filter;
 mod filter_list;
 
-fn main() -> anyhow::Result<()> {
+fn main() -> Result<()> {
     let args: Vec<_> = env::args().collect();
 
     let file_name = if args.len() > 1 {

@@ -1,6 +1,6 @@
 use ratatui::widgets::ListState;
 
-use crate::{command_list, filter};
+use crate::filter;
 
 pub struct FilterableListState<'a> {
     all_item: Vec<&'a str>,
@@ -9,9 +9,9 @@ pub struct FilterableListState<'a> {
 }
 
 impl<'a> FilterableListState<'a> {
-    pub fn new() -> FilterableListState<'a> {
+    pub fn new(all_item: &'a Vec<String>) -> FilterableListState<'a> {
         FilterableListState {
-            all_item: command_list::full(),
+            all_item: all_item.into_iter().map(|s| &s[..]).collect(),
             filter: "".to_string(),
             list_state: ListState::default(),
         }

@@ -2,6 +2,7 @@ use anyhow::Result;
 use crossterm::{
     event::{self, Event, KeyCode, KeyModifiers},
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
+    ExecutableCommand,
 };
 use ratatui::{
     backend::CrosstermBackend,
@@ -11,8 +12,8 @@ use ratatui::{
 };
 use std::io::{self, stdout};
 
+use crate::command_list::{CommandList, CommanderEnvironment};
 use crate::filter_list::FilterableListState;
-
 struct AppContext<'a> {
     list: FilterableListState<'a>,
     run_command: Option<String>,
@@ -62,10 +63,6 @@ fn event_handler(app_context: &mut AppContext) -> io::Result<()> {
                         KeyCode::Char('j') => {
                             app_context.list.previous();
                         }
-                        KeyCode::Char('e') => {
-                            app_context.run_command = app_context.list.get_current_item();
-                            app_context.exit_next = true;
-                        }
                         _ => return Ok(()),
                     }
                 } else {
@@ -93,14 +90,13 @@ fn event_handler(app_context: &mut AppContext) -> io::Result<()> {
     Ok(())
 }
 
-pub fn app() -> Result<String> {
-    stdout().execute(EnterAlternateScreen)?;
-    enable_raw_mode()?;
+pub fn run_main_term_loop() -> Result<Option<String>> {
     let mut terminal = Terminal::new(CrosstermBackend::new(stdout()))?;
     terminal.clear()?;
 
+    let commands = CommandList::new(CommanderEnvironment::new()?)?;
     let mut app_context = AppContext {
-        list: FilterableListState::new(),
+        list: FilterableListState::new(&commands.commands),
         exit_next: false,
         run_command: None,
     };
@@ -112,9 +108,17 @@ pub fn app() -> Result<String> {
             break;
         }
     }
+    return Ok(app_context.run_command);
+}
+
+pub fn app() -> Result<Option<String>> {
+    stdout().execute(EnterAlternateScreen)?;
+    enable_raw_mode()?;
+
+    let result_or_error = run_main_term_loop();
 
     stdout().execute(LeaveAlternateScreen)?;
     disable_raw_mode()?;
 
-    return Ok(app_context.run_command);
+    result_or_error
 }

@@ -8,6 +8,7 @@ edition = "2021"
 [dependencies]
 anyhow = "1.0.75"
 crossterm = "0.27.0"
-nucleo-matcher = "0.2.0"
+nucleo-matcher = "0.3.0"
 ratatui = "0.24.0"
+regex = "1.10.2"
 thiserror = "1.0.51"
