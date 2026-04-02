@@ -6,8 +6,8 @@ use crossterm::{
 };
 use ratatui::{
     backend::CrosstermBackend,
-    layout::{Constraint, Corner, Direction, Layout},
-    widgets::{Block, Borders, List, ListItem, Paragraph},
+    layout::{Constraint, Direction, Layout},
+    widgets::{Block, Borders, List, ListDirection, ListItem, Paragraph},
     Frame, Terminal,
 };
 use std::io::{self, stderr};
@@ -24,7 +24,7 @@ fn ui(frame: &mut Frame, app_context: &mut AppContext) {
     let layout = Layout::default()
         .direction(Direction::Vertical)
         .constraints(vec![Constraint::Percentage(100), Constraint::Min(3)])
-        .split(frame.size());
+        .split(frame.area());
 
     let items: Vec<ListItem> = app_context
         .list
@@ -34,7 +34,7 @@ fn ui(frame: &mut Frame, app_context: &mut AppContext) {
         .collect();
     let list = List::new(items)
         .highlight_symbol("> ")
-        .start_corner(Corner::BottomLeft);
+        .direction(ListDirection::BottomToTop);
     frame.render_stateful_widget(
         list.block(Block::new().borders(Borders::NONE)),
         layout[0],
