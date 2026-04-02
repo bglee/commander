@@ -1,8 +1,6 @@
 #!/bin/zsh
-#Stash the current session before running
-history -w
-touch t.txt
-cargo run t.txt
-ex=$(head -n 1 t.txt)
-rm t.txt
-eval $ex
+fc -W
+selected=$(fc -rl 1 | sed 's/^[[:space:]]*[0-9]*[[:space:]]*//' | ./target/debug/commander)
+if [[ -n "$selected" ]]; then
+    eval "$selected"
+fi

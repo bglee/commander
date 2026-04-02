@@ -9,7 +9,7 @@ pub struct FilterableListState<'a> {
 }
 
 impl<'a> FilterableListState<'a> {
-    pub fn new(all_item: &'a Vec<String>) -> FilterableListState<'a> {
+    pub fn new(all_item: &'a [String]) -> FilterableListState<'a> {
         FilterableListState {
             all_item: all_item.into_iter().map(|s| &s[..]).collect(),
             filter: "".to_string(),
@@ -29,15 +29,20 @@ impl<'a> FilterableListState<'a> {
     pub fn reset_select(&mut self) {
         let len = self.get_filtered_items().len();
         if len != 0 {
-            self.list_state.select(Some(len - 1));
+            self.list_state.select(Some(0));
         } else {
             self.list_state.select(None);
         }
     }
     pub fn next(&mut self) {
+        let len = self.get_filtered_items().len();
+        if len == 0 {
+            self.list_state.select(None);
+            return;
+        }
         let next_index = match self.list_state.selected() {
             Some(current_index) => {
-                if current_index >= self.get_filtered_items().len() {
+                if current_index >= len - 1 {
                     0
                 } else {
                     current_index + 1
@@ -48,10 +53,15 @@ impl<'a> FilterableListState<'a> {
         self.list_state.select(Some(next_index));
     }
     pub fn previous(&mut self) {
+        let len = self.get_filtered_items().len();
+        if len == 0 {
+            self.list_state.select(None);
+            return;
+        }
         let previous_index = match self.list_state.selected() {
             Some(current_index) => {
                 if current_index == 0 {
-                    self.get_filtered_items().len() - 1
+                    len - 1
                 } else {
                     current_index - 1
                 }

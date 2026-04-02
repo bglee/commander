@@ -1,27 +1,29 @@
 use anyhow::Result;
 use app::app;
-use std::{env, fs::File, io::Write};
+use std::collections::HashSet;
+use std::io::{self, BufRead};
 
 mod app;
-mod command_list;
-mod commander_environment;
 mod filter;
 mod filter_list;
 
 fn main() -> Result<()> {
-    let args: Vec<_> = env::args().collect();
+    let stdin = io::stdin();
+    let mut seen = HashSet::new();
+    let commands: Vec<String> = stdin
+        .lock()
+        .lines()
+        .map_while(Result::ok)
+        .filter(|line| !line.is_empty() && seen.insert(line.clone()))
+        .collect();
 
-    let file_name = if args.len() > 1 {
-        Some(args[1].to_owned())
-    } else {
-        None
-    };
-    let run_command = app()?;
-
-    if let (Some(command), Some(file_name)) = (run_command, file_name) {
-        let mut file = File::create(file_name)?;
-        file.write_all(command.as_bytes())?;
+    match app(commands)? {
+        Some(command) => {
+            println!("{}", command);
+            Ok(())
+        }
+        None => {
+            std::process::exit(1);
+        }
     }
-
-    Ok(())
 }

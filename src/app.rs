@@ -10,10 +10,9 @@ use ratatui::{
     widgets::{Block, Borders, List, ListItem, Paragraph},
     Frame, Terminal,
 };
-use std::io::{self, stdout};
+use std::io::{self, stderr};
 
 use crate::filter_list::FilterableListState;
-use crate::{command_list::CommandList, commander_environment::CommanderEnvironment};
 
 struct AppContext<'a> {
     list: FilterableListState<'a>,
@@ -91,13 +90,12 @@ fn event_handler(app_context: &mut AppContext) -> io::Result<()> {
     Ok(())
 }
 
-pub fn run_main_term_loop() -> Result<Option<String>> {
-    let mut terminal = Terminal::new(CrosstermBackend::new(stdout()))?;
+fn run_main_term_loop(commands: &[String]) -> Result<Option<String>> {
+    let mut terminal = Terminal::new(CrosstermBackend::new(stderr()))?;
     terminal.clear()?;
 
-    let commands = CommandList::new(CommanderEnvironment::new()?)?;
     let mut app_context = AppContext {
-        list: FilterableListState::new(&commands.commands),
+        list: FilterableListState::new(commands),
         exit_next: false,
         run_command: None,
     };
@@ -112,13 +110,13 @@ pub fn run_main_term_loop() -> Result<Option<String>> {
     return Ok(app_context.run_command);
 }
 
-pub fn app() -> Result<Option<String>> {
-    stdout().execute(EnterAlternateScreen)?;
+pub fn app(commands: Vec<String>) -> Result<Option<String>> {
+    stderr().execute(EnterAlternateScreen)?;
     enable_raw_mode()?;
 
-    let result_or_error = run_main_term_loop();
+    let result_or_error = run_main_term_loop(&commands);
 
-    stdout().execute(LeaveAlternateScreen)?;
+    stderr().execute(LeaveAlternateScreen)?;
     disable_raw_mode()?;
 
     result_or_error
