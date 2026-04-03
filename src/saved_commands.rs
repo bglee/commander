@@ -60,6 +60,10 @@ impl SavedCommands {
             .unwrap_or_default()
     }
 
+    pub fn load_from_string(json: &str) -> Self {
+        serde_json::from_str(json).unwrap_or_default()
+    }
+
     fn save(&self) {
         if let Ok(json) = serde_json::to_string_pretty(self) {
             let _ = fs::write(FILE_NAME, json);

@@ -7,6 +7,7 @@ mod app;
 mod filter;
 mod filter_list;
 mod saved_commands;
+mod trust;
 
 fn main() -> Result<()> {
     let stdin = io::stdin();

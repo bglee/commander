@@ -18,6 +18,7 @@ use std::process::{Command, Stdio};
 
 use crate::filter_list::FilterableListState;
 use crate::saved_commands::{SavedCommands, Template, TemplateParam};
+use crate::trust::{check_trust, TrustStatus, TrustStore};
 
 #[derive(PartialEq)]
 enum ViewMode {
@@ -38,6 +39,11 @@ enum CreatePhase {
 }
 
 enum AppState {
+    TrustPrompt {
+        file_path: String,
+        file_contents: String,
+        file_hash: String,
+    },
     Normal,
     TemplateInput {
         template_index: usize,
@@ -64,6 +70,62 @@ struct AppContext {
     all_commands: Vec<String>,
     saved_commands: SavedCommands,
     app_state: AppState,
+}
+
+// ─── Trust prompt UI ─────────────────────────────────────────────────────────
+
+fn ui_trust_prompt(frame: &mut Frame, file_path: &str) {
+    let layout = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints(vec![
+            Constraint::Percentage(100),
+            Constraint::Min(5),
+            Constraint::Min(1),
+        ])
+        .split(frame.area());
+
+    let warning_style = Style::default()
+        .fg(ratatui::style::Color::Yellow)
+        .add_modifier(Modifier::BOLD);
+    let path_style = Style::default().fg(ratatui::style::Color::Cyan);
+
+    let text = vec![
+        Line::from(Span::styled(
+            "This folder contains a .commander.json file.",
+            warning_style,
+        )),
+        Line::from(Span::styled(file_path, path_style)),
+        Line::from(""),
+        Line::from("Do you trust the authors of this file?"),
+    ];
+
+    frame.render_widget(
+        Paragraph::new(text).block(
+            Block::new()
+                .borders(Borders::ALL)
+                .title("Trust project commands?"),
+        ),
+        layout[1],
+    );
+
+    let key_style = Style::default()
+        .add_modifier(Modifier::BOLD)
+        .fg(ratatui::style::Color::White);
+    let desc_style = Style::default().fg(ratatui::style::Color::DarkGray);
+    let help_line = Line::from(vec![
+        Span::styled("y", key_style),
+        Span::styled(" trust & load  ", desc_style),
+        Span::styled("n", key_style),
+        Span::styled(" skip  ", desc_style),
+        Span::styled("ctrl+q", key_style),
+        Span::styled(" quit", desc_style),
+    ]);
+    frame.render_widget(
+        Paragraph::new(help_line)
+            .style(Style::default().fg(ratatui::style::Color::Gray))
+            .block(Block::new().borders(Borders::NONE)),
+        layout[2],
+    );
 }
 
 // ─── Normal mode UI ──────────────────────────────────────────────────────────
@@ -418,6 +480,10 @@ fn ui_template_create(
 
 fn ui(frame: &mut Frame, app_context: &mut AppContext) {
     match &app_context.app_state {
+        AppState::TrustPrompt { file_path, .. } => {
+            let file_path = file_path.clone();
+            ui_trust_prompt(frame, &file_path);
+        }
         AppState::Normal => ui_normal(frame, app_context),
         AppState::TemplateInput {
             template_index,
@@ -491,6 +557,47 @@ fn ui(frame: &mut Frame, app_context: &mut AppContext) {
 }
 
 // ─── Event handlers ──────────────────────────────────────────────────────────
+
+fn event_handler_trust_prompt(app_context: &mut AppContext, key: event::KeyEvent) {
+    if key.modifiers == KeyModifiers::CONTROL && key.code == KeyCode::Char('q') {
+        app_context.exit_next = true;
+        return;
+    }
+    match key.code {
+        KeyCode::Char('y') => {
+            if let AppState::TrustPrompt {
+                file_path,
+                file_contents,
+                file_hash,
+            } = std::mem::replace(&mut app_context.app_state, AppState::Normal)
+            {
+                let mut store = TrustStore::load();
+                store.trust(&file_path, &file_hash);
+
+                let saved = SavedCommands::load_from_string(&file_contents);
+                // Merge saved commands into the list
+                for cmd in saved.commands() {
+                    if !app_context.all_commands.contains(cmd) {
+                        app_context.all_commands.push(cmd.clone());
+                    }
+                }
+                for tmpl in saved.templates() {
+                    if !app_context.all_commands.contains(&tmpl.command) {
+                        app_context.all_commands.push(tmpl.command.clone());
+                    }
+                }
+                app_context
+                    .list
+                    .swap_items(app_context.all_commands.clone());
+                app_context.saved_commands = saved;
+            }
+        }
+        KeyCode::Char('n') => {
+            app_context.app_state = AppState::Normal;
+        }
+        _ => {}
+    }
+}
 
 fn event_handler_normal(app_context: &mut AppContext, key: event::KeyEvent) {
     if key.modifiers == KeyModifiers::CONTROL {
@@ -792,6 +899,9 @@ fn event_handler(app_context: &mut AppContext) -> io::Result<()> {
         if let Event::Key(key) = event::read()? {
             if key.kind == event::KeyEventKind::Press {
                 match &app_context.app_state {
+                    AppState::TrustPrompt { .. } => {
+                        event_handler_trust_prompt(app_context, key)
+                    }
                     AppState::Normal => event_handler_normal(app_context, key),
                     AppState::TemplateInput { .. } => {
                         event_handler_template_input(app_context, key)
@@ -819,7 +929,24 @@ fn run_main_term_loop(commands: Vec<String>) -> Result<Option<String>> {
     let mut terminal = Terminal::new(CrosstermBackend::new(stderr()))?;
     terminal.clear()?;
 
-    let saved_commands = SavedCommands::load();
+    let (saved_commands, initial_state) = match check_trust() {
+        TrustStatus::NoFile => (SavedCommands::load(), AppState::Normal),
+        TrustStatus::Trusted { contents } => {
+            (SavedCommands::load_from_string(&contents), AppState::Normal)
+        }
+        TrustStatus::Untrusted {
+            path,
+            contents,
+            hash,
+        } => (
+            SavedCommands::default(),
+            AppState::TrustPrompt {
+                file_path: path,
+                file_contents: contents,
+                file_hash: hash,
+            },
+        ),
+    };
 
     // Merge saved commands and template commands into the list, deduplicating
     let mut all_commands = commands;
@@ -841,7 +968,7 @@ fn run_main_term_loop(commands: Vec<String>) -> Result<Option<String>> {
         view_mode: ViewMode::All,
         all_commands,
         saved_commands,
-        app_state: AppState::Normal,
+        app_state: initial_state,
     };
 
     loop {
