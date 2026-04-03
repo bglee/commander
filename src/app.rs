@@ -52,8 +52,10 @@ fn ui(frame: &mut Frame, app_context: &mut AppContext) {
             }
         })
         .collect();
+    let highlight_color = ratatui::style::Color::Green;
     let list = List::new(items)
         .highlight_symbol("❯ ")
+        .highlight_style(Style::default().fg(highlight_color))
         .highlight_spacing(HighlightSpacing::Always)
         .direction(ListDirection::BottomToTop);
     frame.render_stateful_widget(
@@ -149,6 +151,12 @@ fn event_handler(app_context: &mut AppContext) -> io::Result<()> {
                             let mut str = app_context.list.get_filter().to_string();
                             str.pop();
                             app_context.list.set_filter(str.to_string());
+                        }
+                        KeyCode::Up => {
+                            app_context.list.next();
+                        }
+                        KeyCode::Down => {
+                            app_context.list.previous();
                         }
                         KeyCode::Enter => {
                             app_context.run_command = app_context.list.get_current_item();
