@@ -7,8 +7,10 @@ use crossterm::{
 use ratatui::{
     backend::CrosstermBackend,
     layout::{Constraint, Direction, Layout},
-    widgets::{Block, Borders, List, ListDirection, ListItem, Paragraph},
-    Frame, Terminal,
+    widgets::{Block, Borders, HighlightSpacing, List, ListDirection, ListItem, Paragraph},
+    style::{Modifier, Style},
+    text::{Line, Span},
+    Frame, Terminal
 };
 use std::io::{self, stderr};
 
@@ -23,7 +25,7 @@ struct AppContext<'a> {
 fn ui(frame: &mut Frame, app_context: &mut AppContext) {
     let layout = Layout::default()
         .direction(Direction::Vertical)
-        .constraints(vec![Constraint::Percentage(100), Constraint::Min(3)])
+        .constraints(vec![Constraint::Percentage(100), Constraint::Min(3),Constraint::Min(1)])
         .split(frame.area());
 
     let items: Vec<ListItem> = app_context
@@ -33,7 +35,8 @@ fn ui(frame: &mut Frame, app_context: &mut AppContext) {
         .map(|item| ListItem::new(item.to_string()))
         .collect();
     let list = List::new(items)
-        .highlight_symbol("> ")
+        .highlight_symbol("❯ ")
+        .highlight_spacing(HighlightSpacing::Always)
         .direction(ListDirection::BottomToTop);
     frame.render_stateful_widget(
         list.block(Block::new().borders(Borders::NONE)),
@@ -42,9 +45,27 @@ fn ui(frame: &mut Frame, app_context: &mut AppContext) {
     );
 
     frame.render_widget(
-        Paragraph::new(format!(">{}", app_context.list.get_filter()))
+        Paragraph::new(format!("❯{}", app_context.list.get_filter()))
             .block(Block::new().borders(Borders::ALL)),
         layout[1],
+    );
+    let key_style = Style::default().add_modifier(Modifier::BOLD).fg(ratatui::style::Color::White);
+    let desc_style = Style::default().fg(ratatui::style::Color::DarkGray);
+    let help_line = Line::from(vec![
+        Span::styled("ctrl+q", key_style),
+        Span::styled(" quit  ", desc_style),
+        Span::styled("ctrl+j", key_style),
+        Span::styled(" ↑  ", desc_style),
+        Span::styled("ctrl+k", key_style),
+        Span::styled(" ↓  ", desc_style),
+        Span::styled("enter", key_style),
+        Span::styled(" select", desc_style),
+    ]);
+    frame.render_widget(
+        Paragraph::new(help_line)
+            .style(Style::default().fg(ratatui::style::Color::Gray))
+            .block(Block::new().borders(Borders::NONE)),
+        layout[2],
     );
 }
 
@@ -115,7 +136,6 @@ pub fn app(commands: Vec<String>) -> Result<Option<String>> {
     enable_raw_mode()?;
 
     let result_or_error = run_main_term_loop(&commands);
-
     stderr().execute(LeaveAlternateScreen)?;
     disable_raw_mode()?;
 
