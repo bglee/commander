@@ -20,5 +20,5 @@ pub fn fuzzy_filter<'a>(term: &str, list: &[&'a str]) -> Vec<&'a str> {
 
     ordered_scored.sort_by(|a,b| b.1.cmp(&a.1));
 
-    return ordered_scored.iter().map(|f| f.0).collect();
+    ordered_scored.iter().map(|f| f.0).collect()
 }
