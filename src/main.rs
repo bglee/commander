@@ -6,6 +6,7 @@ use std::io::{self, BufRead};
 mod app;
 mod filter;
 mod filter_list;
+mod saved_commands;
 
 fn main() -> Result<()> {
     let stdin = io::stdin();

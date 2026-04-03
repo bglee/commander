@@ -16,11 +16,21 @@ use std::io::{self, stderr, Write};
 use std::process::{Command, Stdio};
 
 use crate::filter_list::FilterableListState;
+use crate::saved_commands::SavedCommands;
 
-struct AppContext<'a> {
-    list: FilterableListState<'a>,
+#[derive(PartialEq)]
+enum ViewMode {
+    All,
+    SavedOnly,
+}
+
+struct AppContext {
+    list: FilterableListState,
     run_command: Option<String>,
     exit_next: bool,
+    view_mode: ViewMode,
+    all_commands: Vec<String>,
+    saved_commands: SavedCommands,
 }
 
 fn ui(frame: &mut Frame, app_context: &mut AppContext) {
@@ -33,7 +43,14 @@ fn ui(frame: &mut Frame, app_context: &mut AppContext) {
         .list
         .get_filtered_items()
         .iter()
-        .map(|item| ListItem::new(item.to_string()))
+        .map(|item| {
+            if app_context.saved_commands.contains(item) {
+                ListItem::new(item.to_string())
+                    .style(Style::default().fg(ratatui::style::Color::Cyan))
+            } else {
+                ListItem::new(item.to_string())
+            }
+        })
         .collect();
     let list = List::new(items)
         .highlight_symbol("❯ ")
@@ -46,13 +63,19 @@ fn ui(frame: &mut Frame, app_context: &mut AppContext) {
     );
 
     frame.render_widget(
-        Paragraph::new(format!("❯{}", app_context.list.get_filter()))
+        Paragraph::new(format!("❯ {}", app_context.list.get_filter()))
             .block(Block::new().borders(Borders::ALL)),
         layout[1],
     );
     let key_style = Style::default().add_modifier(Modifier::BOLD).fg(ratatui::style::Color::White);
     let desc_style = Style::default().fg(ratatui::style::Color::DarkGray);
+    let mode_str = match app_context.view_mode {
+        ViewMode::All => "[all]",
+        ViewMode::SavedOnly => "[saved]",
+    };
     let help_line = Line::from(vec![
+            Span::styled("enter", key_style),
+        Span::styled(" select  ", desc_style),
         Span::styled("ctrl+q", key_style),
         Span::styled(" quit  ", desc_style),
         Span::styled("ctrl+j", key_style),
@@ -61,8 +84,11 @@ fn ui(frame: &mut Frame, app_context: &mut AppContext) {
         Span::styled(" ↓  ", desc_style),
         Span::styled("ctrl+c", key_style),
         Span::styled(" copy  ", desc_style),
-        Span::styled("enter", key_style),
-        Span::styled(" select", desc_style),
+        Span::styled("ctrl+s", key_style),
+        Span::styled(" save  ", desc_style),
+        Span::styled("ctrl+v", key_style),
+        Span::styled(" view  ", desc_style),
+        Span::styled(mode_str, Style::default().fg(ratatui::style::Color::Yellow)),
     ]);
     frame.render_widget(
         Paragraph::new(help_line)
@@ -92,6 +118,24 @@ fn event_handler(app_context: &mut AppContext) -> io::Result<()> {
                                 copy_to_clipboard(&item);
                             }
                         }
+                        KeyCode::Char('s') => {
+                            if let Some(item) = app_context.list.get_current_item() {
+                                app_context.saved_commands.add(item);
+                            }
+                        }
+                        KeyCode::Char('v') => {
+                            match app_context.view_mode {
+                                ViewMode::All => {
+                                    let saved = app_context.saved_commands.commands().to_vec();
+                                    app_context.list.swap_items(saved);
+                                    app_context.view_mode = ViewMode::SavedOnly;
+                                }
+                                ViewMode::SavedOnly => {
+                                    app_context.list.swap_items(app_context.all_commands.clone());
+                                    app_context.view_mode = ViewMode::All;
+                                }
+                            }
+                        }
                         _ => return Ok(()),
                     }
                 } else {
@@ -104,7 +148,7 @@ fn event_handler(app_context: &mut AppContext) -> io::Result<()> {
                         KeyCode::Backspace => {
                             let mut str = app_context.list.get_filter().to_string();
                             str.pop();
-                            app_context.list.set_filter(format!("{}", str));
+                            app_context.list.set_filter(str.to_string());
                         }
                         KeyCode::Enter => {
                             app_context.run_command = app_context.list.get_current_item();
@@ -131,31 +175,44 @@ fn copy_to_clipboard(text: &str) {
     }
 }
 
-fn run_main_term_loop(commands: &[String]) -> Result<Option<String>> {
+fn run_main_term_loop(commands: Vec<String>) -> Result<Option<String>> {
     let mut terminal = Terminal::new(CrosstermBackend::new(stderr()))?;
     terminal.clear()?;
 
+    let saved_commands = SavedCommands::load();
+
+    // Merge saved commands into the list, deduplicating
+    let mut all_commands = commands;
+    for cmd in saved_commands.commands() {
+        if !all_commands.contains(cmd) {
+            all_commands.push(cmd.clone());
+        }
+    }
+
     let mut app_context = AppContext {
-        list: FilterableListState::new(commands),
+        list: FilterableListState::new(all_commands.clone()),
         exit_next: false,
         run_command: None,
+        view_mode: ViewMode::All,
+        all_commands,
+        saved_commands,
     };
 
     loop {
         event_handler(&mut app_context)?;
         terminal.draw(|frame| ui(frame, &mut app_context))?;
-        if app_context.exit_next == true {
+        if app_context.exit_next {
             break;
         }
     }
-    return Ok(app_context.run_command);
+    Ok(app_context.run_command)
 }
 
 pub fn app(commands: Vec<String>) -> Result<Option<String>> {
     stderr().execute(EnterAlternateScreen)?;
     enable_raw_mode()?;
 
-    let result_or_error = run_main_term_loop(&commands);
+    let result_or_error = run_main_term_loop(commands);
     stderr().execute(LeaveAlternateScreen)?;
     disable_raw_mode()?;
 
