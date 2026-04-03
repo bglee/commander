@@ -1,14 +1,14 @@
 # commander
 A lightweight command line tool built for quick command recall
 
-## Quick Start
+## Build and Start
 
 ```bash
 # Build
 cargo build --release
 ```
 
-### Setup
+### Setup (zsh)
 
 Add the following to your `~/.zshrc`:
 
@@ -22,34 +22,40 @@ function c() {
 }
 ```
 
-Replace `/path/to/commander` with the actual path to the built binary (e.g. `~/commander/target/release/commander`).
+Then: `source ~/.zshrc`
 
-Then reload your shell:
+### Setup (bash)
+
+Add the following to your `~/.bashrc`:
 
 ```bash
-source ~/.zshrc
+function c() {
+    history -a
+    selected=$(history | sed 's/^[[:space:]]*[0-9]*[[:space:]]*//' | /path/to/commander)
+    if [[ -n "$selected" ]]; then
+        history -s "$selected"
+        echo "$selected"
+        eval "$selected"
+    fi
+}
 ```
+
+Then: `source ~/.bashrc`
+
+---
+
+Replace `/path/to/commander` with the actual path to the built binary (e.g. `~/commander/target/release/commander`).
 
 Now run `c` to browse and fuzzy-search your command history.
 
-### Controls
-
-- **Type** to filter
-- **Arrow keys** or `Ctrl+J`/`Ctrl+K` to navigate
-- **Enter** to select
-- **Ctrl+S** to save a command
-- **Ctrl+V** to toggle between all/saved commands
-- **Ctrl+C** to copy to clipboard
-- **Ctrl+Q** to quit
-
 ## Todo
-- [ ] Fix the fuzzy search
-- [ ] Saved the commands
-- [ ] Create a config
-- [ ] Handle bash 
+- [x] Fix the fuzzy search
+- [x] Saved the commands
+- [x] Handle bash
 - [ ] Build
 - [ ] Create crate
 - [ ] Create deb package
 - [ ] Create brew package
+- [ ] Windows support (see [windows_support.md](windows_support.md))
 - [x] Clean up errors
 - [x] Clean up tests
