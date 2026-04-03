@@ -12,7 +12,8 @@ use ratatui::{
     text::{Line, Span},
     Frame, Terminal
 };
-use std::io::{self, stderr};
+use std::io::{self, stderr, Write};
+use std::process::{Command, Stdio};
 
 use crate::filter_list::FilterableListState;
 
@@ -58,6 +59,8 @@ fn ui(frame: &mut Frame, app_context: &mut AppContext) {
         Span::styled(" ↑  ", desc_style),
         Span::styled("ctrl+k", key_style),
         Span::styled(" ↓  ", desc_style),
+        Span::styled("ctrl+c", key_style),
+        Span::styled(" copy  ", desc_style),
         Span::styled("enter", key_style),
         Span::styled(" select", desc_style),
     ]);
@@ -84,6 +87,11 @@ fn event_handler(app_context: &mut AppContext) -> io::Result<()> {
                         KeyCode::Char('j') => {
                             app_context.list.previous();
                         }
+                        KeyCode::Char('c') => {
+                            if let Some(item) = app_context.list.get_current_item() {
+                                copy_to_clipboard(&item);
+                            }
+                        }
                         _ => return Ok(()),
                     }
                 } else {
@@ -109,6 +117,18 @@ fn event_handler(app_context: &mut AppContext) -> io::Result<()> {
         }
     }
     Ok(())
+}
+
+fn copy_to_clipboard(text: &str) {
+    if let Ok(mut child) = Command::new("pbcopy")
+        .stdin(Stdio::piped())
+        .spawn()
+    {
+        if let Some(mut stdin) = child.stdin.take() {
+            let _ = stdin.write_all(text.as_bytes());
+        }
+        let _ = child.wait();
+    }
 }
 
 fn run_main_term_loop(commands: &[String]) -> Result<Option<String>> {
