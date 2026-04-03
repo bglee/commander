@@ -1,12 +1,51 @@
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
 
 const FILE_NAME: &str = ".commander.json";
 
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct TemplateParam {
+    pub example: String,
+    pub description: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct Template {
+    pub command: String,
+    #[serde(flatten)]
+    pub params: HashMap<String, TemplateParam>,
+}
+
+impl Template {
+    pub fn placeholder_names(&self) -> Vec<String> {
+        let mut keys: Vec<String> = self.params.keys().cloned().collect();
+        keys.sort_by(|a, b| {
+            let a_num: Result<usize, _> = a.parse();
+            let b_num: Result<usize, _> = b.parse();
+            match (a_num, b_num) {
+                (Ok(a), Ok(b)) => a.cmp(&b),
+                _ => a.cmp(b),
+            }
+        });
+        keys
+    }
+
+    pub fn resolve(&self, values: &HashMap<String, String>) -> String {
+        let mut result = self.command.clone();
+        for (key, value) in values {
+            result = result.replace(&format!("<{}>", key), value);
+        }
+        result
+    }
+}
+
 #[derive(Serialize, Deserialize, Default)]
 pub struct SavedCommands {
     commands: Vec<String>,
+    #[serde(default)]
+    templates: Vec<Template>,
 }
 
 impl SavedCommands {
@@ -40,5 +79,27 @@ impl SavedCommands {
 
     pub fn commands(&self) -> &[String] {
         &self.commands
+    }
+
+    pub fn templates(&self) -> &[Template] {
+        &self.templates
+    }
+
+    pub fn add_template(&mut self, template: Template) {
+        // Replace if a template with the same command string already exists
+        if let Some(pos) = self
+            .templates
+            .iter()
+            .position(|t| t.command == template.command)
+        {
+            self.templates[pos] = template;
+        } else {
+            self.templates.push(template);
+        }
+        self.save();
+    }
+
+    pub fn find_template(&self, command: &str) -> Option<&Template> {
+        self.templates.iter().find(|t| t.command == command)
     }
 }
