@@ -1,7 +1,17 @@
 [package]
-name = "commander"
+name = "cmdr-recall"
 version = "0.1.0"
 edition = "2021"
+description = "Fuzzy-searchable TUI for command history recall"
+license = "MIT"
+repository = "https://github.com/bglee/commander"
+readme = "README.md"
+keywords = ["cli", "tui", "history", "fuzzy", "shell"]
+categories = ["command-line-utilities"]
+
+[[bin]]
+name = "cmdr-recall"          # binary name users will invoke
+path = "src/main.rs"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
