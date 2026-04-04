@@ -1,21 +1,40 @@
 # commander
 A lightweight command line tool built for quick command recall
 
-## Build and Start
+## Install
+
+Pick **one** of the two install methods, then add the matching shell setup below.
+
+### Option A: Install from crate
 
 ```bash
-# Build
+cargo install cmdr-recall
+```
+
+The binary installs to `~/.cargo/bin/cmdr-recall`. Make sure `~/.cargo/bin` is on your `$PATH`.
+
+### Option B: Build from source
+
+```bash
+git clone https://github.com/bglee/commander.git
+cd commander
 cargo build --release
 ```
 
-### Setup (zsh)
+The binary will be at `./target/release/cmdr-recall`.
 
-Add the following to your `~/.zshrc`:
+## Shell Setup
+
+Pick the snippet for your shell. If you used **Option A**, use `cmdr-recall` directly (it's already on your PATH). If you used **Option B**, replace `cmdr-recall` with the full path to the binary (e.g. `~/commander/target/release/cmdr-recall`).
+
+### zsh
+
+Add to `~/.zshrc`:
 
 ```zsh
 function c() {
     fc -W
-    selected=$(fc -rl 1 | sed 's/^[[:space:]]*[0-9]*[[:space:]]*//' | /path/to/commander)
+    selected=$(fc -rl 1 | sed 's/^[[:space:]]*[0-9]*[[:space:]]*//' | cmdr-recall)
     if [[ -n "$selected" ]]; then
         print -z "$selected"
     fi
@@ -24,14 +43,14 @@ function c() {
 
 Then: `source ~/.zshrc`
 
-### Setup (bash)
+### bash
 
-Add the following to your `~/.bashrc`:
+Add to `~/.bashrc`:
 
 ```bash
 function c() {
     history -a
-    selected=$(history | sed 's/^[[:space:]]*[0-9]*[[:space:]]*//' | /path/to/commander)
+    selected=$(history | sed 's/^[[:space:]]*[0-9]*[[:space:]]*//' | cmdr-recall)
     if [[ -n "$selected" ]]; then
         history -s "$selected"
         echo "$selected"
@@ -43,8 +62,6 @@ function c() {
 Then: `source ~/.bashrc`
 
 ---
-
-Replace `/path/to/commander` with the actual path to the built binary (e.g. `~/commander/target/release/commander`).
 
 Now run `c` to browse and fuzzy-search your command history.
 
@@ -73,7 +90,7 @@ Commander's selected output gets `eval`'d by your shell with your full user perm
 - [x] Saved the commands
 - [x] Handle bash
 - [ ] Build
-- [ ] Create crate
+- [x] Create crate
 - [ ] Create deb package
 - [ ] Create brew package
 - [ ] Windows support (see [windows_support.md](windows_support.md))
