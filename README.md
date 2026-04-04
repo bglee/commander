@@ -85,6 +85,10 @@ If the file changes, Commander will re-prompt since the hash no longer matches.
 
 Commander's selected output gets `eval`'d by your shell with your full user permissions. A malicious `.commander.json` checked into a repo could slip dangerous commands into your list — and a single accidental Enter runs them. This is the same class of attack as a malicious `Makefile` or `.env` file: any file from an untrusted source that feeds into shell execution deserves scrutiny. Always read what you're about to trust.
 
+## Secrets in the Terminal
+
+You already know this: don't put secrets directly in commands. Your shell history records them, and Commander makes that history even more accessible. Saved commands in `.commander.json` are plaintext on disk. Use environment variables, config files, or a secret manager instead — never `--password=hunter2` inline.
+
 ## Todo
 - [x] Fix the fuzzy search
 - [x] Saved the commands
