@@ -4,7 +4,8 @@
     "cargo clippy",
     "cargo build --release",
     "vim ~/.zshrc",
-    "source ~/.zshrc"
+    "source ~/.zshrc",
+    "git push --tags"
   ],
   "templates": [
     {
@@ -12,6 +13,13 @@
       "1": {
         "example": "Example message",
         "description": "Where the commit message goes"
+      }
+    },
+    {
+      "command": "git tag v<1>",
+      "1": {
+        "example": "1.0.1",
+        "description": "The semvar tag that will control the release"
       }
     }
   ]
