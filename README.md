@@ -95,9 +95,17 @@ You already know this: don't put secrets directly in commands. Your shell histor
 - [x] Handle bash
 - [x] Build
 - [x] Create crate
-- [ ] Switch to release-please for automated version bumps
+- [x] Clean up errors
+- [x] Clean up tests
+
+### Package Work
+- [ ] Switch to release-please for automated version bumps (see [package_release.md] (package-release.md))
 - [ ] Create deb package
 - [ ] Create brew package
 - [ ] Windows support (see [windows_support.md](windows_support.md))
-- [x] Clean up errors
-- [x] Clean up tests
+
+### UX Work
+- [ ] Update the UX for command templating and template running to use overlay
+- [ ] Polish settings 
+
+
