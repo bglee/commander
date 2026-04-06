@@ -1,5 +1,7 @@
 {
-  "default_view": "saved-only",
+  "settings": {
+    "default_view": "saved-only"
+  },
   "commands": [
     "cargo build",
     "cargo clippy",

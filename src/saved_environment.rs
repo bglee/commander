@@ -41,10 +41,17 @@ impl Template {
     }
 }
 
+#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+pub struct Settings {
+    #[serde(default)]
+    pub default_view: String,
+}
+
 #[derive(Serialize, Deserialize, Default)]
 pub struct SavedEnvironment {
     #[serde(default)]
-    default_view: String,
+    settings: Settings,
+    #[serde(default)]
     commands: Vec<String>,
     #[serde(default)]
     templates: Vec<Template>,
@@ -83,8 +90,17 @@ impl SavedEnvironment {
         self.commands.iter().any(|c| c == command)
     }
 
-    pub fn default_view(&self) -> &String{
-        &self.default_view
+    pub fn default_view(&self) -> &String {
+        &self.settings.default_view
+    }
+
+    pub fn set_default_view(&mut self, value: String) {
+        self.settings.default_view = value;
+        self.save();
+    }
+
+    pub fn settings(&self) -> &Settings {
+        &self.settings
     }
 
     pub fn commands(&self) -> &[String] {

@@ -6,10 +6,10 @@ use crossterm::{
 };
 use ratatui::{
     backend::CrosstermBackend,
-    layout::{Constraint, Direction, Layout},
+    layout::{Constraint, Direction, Layout, Rect},
     style::{Modifier, Style},
     text::{Line, Span},
-    widgets::{Block, Borders, HighlightSpacing, List, ListDirection, ListItem, Paragraph},
+    widgets::{Block, Borders, Clear, HighlightSpacing, List, ListDirection, ListItem, Paragraph},
     Frame, Terminal,
 };
 use std::collections::HashMap;
@@ -24,6 +24,13 @@ use crate::trust::{check_trust, TrustStatus, TrustStore};
 enum ViewMode {
     All,
     SavedOnly,
+}
+
+enum Scope {
+    Local,
+    Project,
+    Global
+    
 }
 
 struct TemplatePlaceholder {
@@ -60,6 +67,9 @@ enum AppState {
         phase: CreatePhase,
         input: String,
     },
+    Settings {
+        scope: Scope
+    }
 }
 
 struct AppContext {
@@ -476,6 +486,73 @@ fn ui_template_create(
     );
 }
 
+// ─── Settings modal UI ───────────────────────────────────────────────────────
+
+fn ui_settings_modal(frame: &mut Frame, app_context: &mut AppContext) {
+    let area = frame.area();
+    let popup_width = (area.width / 2).max(40).min(area.width);
+    let popup_height = 7u16.min(area.height);
+    let x = (area.width.saturating_sub(popup_width)) / 2;
+    let y = (area.height.saturating_sub(popup_height)) / 2;
+    let popup_rect = Rect::new(x, y, popup_width, popup_height);
+
+    frame.render_widget(Clear, popup_rect);
+
+    let block = Block::new()
+        .borders(Borders::ALL)
+        .title("Project Settings")
+        .border_style(Style::default().fg(ratatui::style::Color::Yellow));
+
+    let inner = block.inner(popup_rect);
+    frame.render_widget(block, popup_rect);
+
+    let inner_layout = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints(vec![
+            Constraint::Min(1), // setting row
+            Constraint::Length(1), // spacer
+            Constraint::Length(1), // help bar
+        ])
+        .split(inner);
+
+    let current_value = app_context.saved_commands.default_view().trim().to_string();
+    let display_value = if current_value == "saved-only" {
+        "saved-only"
+    } else {
+        "all"
+    };
+
+    let key_style = Style::default()
+        .add_modifier(Modifier::BOLD)
+        .fg(ratatui::style::Color::White);
+    let value_style = Style::default().fg(ratatui::style::Color::Cyan);
+    let desc_style = Style::default().fg(ratatui::style::Color::DarkGray);
+
+    let setting_line = Line::from(vec![
+        Span::styled("default_view: ", key_style),
+        Span::styled(display_value, value_style),
+        Span::styled(
+            if display_value == "all" {
+                "  (all / saved-only)"
+            } else {
+                "  (saved-only / all)"
+            },
+            desc_style,
+        ),
+    ]);
+    frame.render_widget(Paragraph::new(setting_line), inner_layout[0]);
+
+    let help_line = Line::from(vec![
+        Span::styled("enter", key_style),
+        Span::styled(" toggle  ", desc_style),
+        Span::styled("esc", key_style),
+        Span::styled(" close  ", desc_style),
+        Span::styled("ctrl+q", key_style),
+        Span::styled(" quit", desc_style),
+    ]);
+    frame.render_widget(Paragraph::new(help_line), inner_layout[2]);
+}
+
 // ─── Main UI dispatch ────────────────────────────────────────────────────────
 
 fn ui(frame: &mut Frame, app_context: &mut AppContext) {
@@ -553,6 +630,10 @@ fn ui(frame: &mut Frame, app_context: &mut AppContext) {
                 &placeholder_data,
             );
         }
+        AppState::Settings { .. } => {
+            ui_normal(frame, app_context);
+            ui_settings_modal(frame, app_context);
+        }
     }
 }
 
@@ -621,6 +702,21 @@ fn event_handler_normal(app_context: &mut AppContext, key: event::KeyEvent) {
                     app_context.saved_commands.add(item);
                 }
             }
+            KeyCode::Char('t') => {
+                if let Some(item) = app_context.list.get_current_item() {
+                    let len = item.chars().count();
+                    app_context.app_state = AppState::TemplateCreate {
+                        command: item,
+                        cursor_pos: 0,
+                        selection_start: None,
+                        placeholders: Vec::new(),
+                        phase: CreatePhase::Selecting,
+                        input: String::new(),
+                    };
+                    // Ensure cursor is at start, which is already 0
+                    let _ = len;
+                }
+            }   
             KeyCode::Char('v') => match app_context.view_mode {
                 ViewMode::All => {
                     let mut items: Vec<String> = app_context.saved_commands.commands().to_vec();
@@ -638,21 +734,9 @@ fn event_handler_normal(app_context: &mut AppContext, key: event::KeyEvent) {
                         .swap_items(app_context.all_commands.clone());
                     app_context.view_mode = ViewMode::All;
                 }
-            },
-            KeyCode::Char('t') => {
-                if let Some(item) = app_context.list.get_current_item() {
-                    let len = item.chars().count();
-                    app_context.app_state = AppState::TemplateCreate {
-                        command: item,
-                        cursor_pos: 0,
-                        selection_start: None,
-                        placeholders: Vec::new(),
-                        phase: CreatePhase::Selecting,
-                        input: String::new(),
-                    };
-                    // Ensure cursor is at start, which is already 0
-                    let _ = len;
-                }
+            }
+            KeyCode::Char('p') => {
+                app_context.app_state=AppState::Settings { scope: Scope::Project };
             }
             _ => {}
         }
@@ -894,6 +978,45 @@ fn event_handler_template_create(app_context: &mut AppContext, key: event::KeyEv
     }
 }
 
+fn event_handler_settings(app_context: &mut AppContext, key: event::KeyEvent) {
+    if key.modifiers == KeyModifiers::CONTROL && key.code == KeyCode::Char('q') {
+        app_context.exit_next = true;
+        return;
+    }
+    match key.code {
+        KeyCode::Enter => {
+            let current = app_context.saved_commands.default_view().trim().to_string();
+            let new_value = if current == "saved-only" {
+                "all".to_string()
+            } else {
+                "saved-only".to_string()
+            };
+            app_context.saved_commands.set_default_view(new_value);
+        }
+        KeyCode::Esc => {
+            // Apply the current setting to view mode before closing
+            let current = app_context.saved_commands.default_view().trim().to_string();
+            if current == "saved-only" {
+                let mut items: Vec<String> = app_context.saved_commands.commands().to_vec();
+                for t in app_context.saved_commands.templates() {
+                    if !items.contains(&t.command) {
+                        items.push(t.command.clone());
+                    }
+                }
+                app_context.list.swap_items(items);
+                app_context.view_mode = ViewMode::SavedOnly;
+            } else {
+                app_context
+                    .list
+                    .swap_items(app_context.all_commands.clone());
+                app_context.view_mode = ViewMode::All;
+            }
+            app_context.app_state = AppState::Normal;
+        }
+        _ => {}
+    }
+}
+
 fn event_handler(app_context: &mut AppContext) -> io::Result<()> {
     if event::poll(std::time::Duration::from_millis(50))? {
         if let Event::Key(key) = event::read()? {
@@ -908,6 +1031,9 @@ fn event_handler(app_context: &mut AppContext) -> io::Result<()> {
                     }
                     AppState::TemplateCreate { .. } => {
                         event_handler_template_create(app_context, key)
+                    }
+                    AppState::Settings { .. } => {
+                        event_handler_settings(app_context, key)
                     }
                 }
             }
