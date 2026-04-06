@@ -195,11 +195,11 @@ fn ui_normal(frame: &mut Frame, app_context: &mut AppContext) {
         Span::styled(" copy  ", desc_style),
         Span::styled("ctrl+s", key_style),
         Span::styled(" save  ", desc_style),
-        Span::styled("ctrl+v", key_style),
-        Span::styled(" view  ", desc_style),
         Span::styled("ctrl+t", key_style),
         Span::styled(" template  ", desc_style),
-        Span::styled(mode_str, Style::default().fg(ratatui::style::Color::Yellow)),
+        Span::styled("ctrl+v", key_style),
+        Span::styled(" view  ", desc_style),
+        Span::styled(mode_str, Style::default().fg(ratatui::style::Color::Cyan)),
     ]);
     frame.render_widget(
         Paragraph::new(help_line)
