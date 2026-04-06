@@ -108,4 +108,8 @@ You already know this: don't put secrets directly in commands. Your shell histor
 - [ ] Update the UX for command templating and template running to use overlay
 - [ ] Polish settings 
 
+### Settings Work 
+- [ ] add hirachical settings for local -> project -> global 
+- [ ] merge saved and templating local -> project -> global
+
 
