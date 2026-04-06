@@ -93,8 +93,9 @@ You already know this: don't put secrets directly in commands. Your shell histor
 - [x] Fix the fuzzy search
 - [x] Saved the commands
 - [x] Handle bash
-- [ ] Build
+- [x] Build
 - [x] Create crate
+- [ ] Switch to release-please for automated version bumps
 - [ ] Create deb package
 - [ ] Create brew package
 - [ ] Windows support (see [windows_support.md](windows_support.md))
