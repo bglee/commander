@@ -26,10 +26,10 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
-      - name: Set version from tag                                                                                                                                       
-        run: |                                                                                                                                                         
-          VERSION="${GITHUB_REF_NAME#v}"    # v0.2.0 → 0.2.0
-          sed -i "s/^version = .*/version = \"$VERSION\"/" Cargo.toml
+      - name: Set version from tag
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          sed -i'' -e "s/^version = .*/version = \"$VERSION\"/" Cargo.toml
       - name: Install cross (Linux ARM)
         if: matrix.target == 'aarch64-unknown-linux-gnu'
         run: cargo install cross
@@ -43,11 +43,11 @@ jobs:
       - name: Package
         run: |
           cd target/${{ matrix.target }}/release
-          tar czf ../../../cmd-recall-${{ github.ref_name }}-${{ matrix.target }}.tar.gz cmd-recall
+          tar czf ../../../cmdr-recall-${{ github.ref_name }}-${{ matrix.target }}.tar.gz cmdr-recall
       - uses: actions/upload-artifact@v4
         with:
-          name: cmd-recall-${{ matrix.target }}
-          path: cmd-recall-*.tar.gz
+          name: cmdr-recall-${{ matrix.target }}
+          path: cmdr-recall-*.tar.gz
 
   release:
     needs: build
@@ -69,7 +69,7 @@ jobs:
       - name: Set version from tag
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
-          sed -i "s/^version = .*/version = \"$VERSION\"/" Cargo.toml
+          sed -i'' -e "s/^version = .*/version = \"$VERSION\"/" Cargo.toml
       - run: cargo publish
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}

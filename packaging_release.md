@@ -281,7 +281,7 @@ And when you see:
 - name: Set version from tag
   run: |
     VERSION="${GITHUB_REF_NAME#v}"
-    sed -i "s/^version = .*/version = \"$VERSION\"/" Cargo.toml
+    sed -i'' -e "s/^version = .*/version = \"$VERSION\"/" Cargo.toml
 ```
 
 That's: "run this shell script directly on the runner."
@@ -391,7 +391,7 @@ jobs:
       - name: Set version from tag
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
-          sed -i "s/^version = .*/version = \"$VERSION\"/" Cargo.toml
+          sed -i'' -e "s/^version = .*/version = \"$VERSION\"/" Cargo.toml
       - run: cargo publish
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
@@ -407,7 +407,7 @@ jobs:
       - name: Set version from tag
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
-          sed -i "s/^version = .*/version = \"$VERSION\"/" Cargo.toml
+          sed -i'' -e "s/^version = .*/version = \"$VERSION\"/" Cargo.toml
       - run: cargo install cargo-deb
       - run: cargo deb
       - uses: softprops/action-gh-release@v2
