@@ -42,13 +42,15 @@ impl Template {
 }
 
 #[derive(Serialize, Deserialize, Default)]
-pub struct SavedCommands {
+pub struct SavedEnvironment {
+    #[serde(default)]
+    default_view: String,
     commands: Vec<String>,
     #[serde(default)]
     templates: Vec<Template>,
 }
 
-impl SavedCommands {
+impl SavedEnvironment {
     pub fn load() -> Self {
         let path = Path::new(FILE_NAME);
         if !path.exists() {
@@ -79,6 +81,10 @@ impl SavedCommands {
 
     pub fn contains(&self, command: &str) -> bool {
         self.commands.iter().any(|c| c == command)
+    }
+
+    pub fn default_view(&self) -> &String{
+        &self.default_view
     }
 
     pub fn commands(&self) -> &[String] {

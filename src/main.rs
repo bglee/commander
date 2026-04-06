@@ -6,7 +6,7 @@ use std::io::{self, BufRead};
 mod app;
 mod filter;
 mod filter_list;
-mod saved_commands;
+mod saved_environment;
 mod trust;
 
 fn main() -> Result<()> {

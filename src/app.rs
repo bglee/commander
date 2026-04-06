@@ -17,7 +17,7 @@ use std::io::{self, stderr, Write};
 use std::process::{Command, Stdio};
 
 use crate::filter_list::FilterableListState;
-use crate::saved_commands::{SavedCommands, Template, TemplateParam};
+use crate::saved_environment::{SavedEnvironment, Template, TemplateParam};
 use crate::trust::{check_trust, TrustStatus, TrustStore};
 
 #[derive(PartialEq)]
@@ -68,7 +68,7 @@ struct AppContext {
     exit_next: bool,
     view_mode: ViewMode,
     all_commands: Vec<String>,
-    saved_commands: SavedCommands,
+    saved_commands: SavedEnvironment,
     app_state: AppState,
 }
 
@@ -574,7 +574,7 @@ fn event_handler_trust_prompt(app_context: &mut AppContext, key: event::KeyEvent
                 let mut store = TrustStore::load();
                 store.trust(&file_path, &file_hash);
 
-                let saved = SavedCommands::load_from_string(&file_contents);
+                let saved = SavedEnvironment::load_from_string(&file_contents);
                 // Merge saved commands into the list
                 for cmd in saved.commands() {
                     if !app_context.all_commands.contains(cmd) {
@@ -929,17 +929,17 @@ fn run_main_term_loop(commands: Vec<String>) -> Result<Option<String>> {
     let mut terminal = Terminal::new(CrosstermBackend::new(stderr()))?;
     terminal.clear()?;
 
-    let (saved_commands, initial_state) = match check_trust() {
-        TrustStatus::NoFile => (SavedCommands::load(), AppState::Normal),
+    let (saved_environment, initial_state) = match check_trust() {
+        TrustStatus::NoFile => (SavedEnvironment::load(), AppState::Normal),
         TrustStatus::Trusted { contents } => {
-            (SavedCommands::load_from_string(&contents), AppState::Normal)
+            (SavedEnvironment::load_from_string(&contents), AppState::Normal)
         }
         TrustStatus::Untrusted {
             path,
             contents,
             hash,
         } => (
-            SavedCommands::default(),
+            SavedEnvironment::default(),
             AppState::TrustPrompt {
                 file_path: path,
                 file_contents: contents,
@@ -948,26 +948,44 @@ fn run_main_term_loop(commands: Vec<String>) -> Result<Option<String>> {
         ),
     };
 
+
+    let view_mode = match saved_environment.default_view().trim() {
+        "saved-only" => ViewMode::SavedOnly,
+        &_ => ViewMode::All
+    } ;
+
     // Merge saved commands and template commands into the list, deduplicating
     let mut all_commands = commands;
-    for cmd in saved_commands.commands() {
+    for cmd in saved_environment.commands() {
         if !all_commands.contains(cmd) {
             all_commands.push(cmd.clone());
         }
     }
-    for tmpl in saved_commands.templates() {
+    for tmpl in saved_environment.templates() {
         if !all_commands.contains(&tmpl.command) {
             all_commands.push(tmpl.command.clone());
         }
     }
 
+    let initial_list = if view_mode == ViewMode::SavedOnly {
+        let mut items: Vec<String> = saved_environment.commands().to_vec();
+        for t in saved_environment.templates() {
+            if !items.contains(&t.command) {
+                items.push(t.command.clone());
+            }
+        }
+        items
+    } else {
+        all_commands.clone()
+    };
+
     let mut app_context = AppContext {
-        list: FilterableListState::new(all_commands.clone()),
+        list: FilterableListState::new(initial_list),
         exit_next: false,
         run_command: None,
-        view_mode: ViewMode::All,
+        view_mode,
         all_commands,
-        saved_commands,
+        saved_commands: saved_environment,
         app_state: initial_state,
     };
 
