@@ -206,6 +206,8 @@ fn ui_normal(frame: &mut Frame, app_context: &mut AppContext) {
         Span::styled(" save  ", desc_style),
         Span::styled("ctrl+t", key_style),
         Span::styled(" template  ", desc_style),
+        Span::styled("ctrl+p", key_style),
+        Span::styled(" settings  ", desc_style),
         Span::styled("ctrl+v", key_style),
         Span::styled(" view  ", desc_style),
         Span::styled(mode_str, Style::default().fg(ratatui::style::Color::Cyan)),
@@ -499,7 +501,7 @@ fn ui_settings_modal(frame: &mut Frame, app_context: &mut AppContext) {
 
     let block = Block::new()
         .borders(Borders::ALL)
-        .title("Project Settings")
+        .title(format!("Project Settings {}, {}", popup_width, popup_height ))
         .border_style(Style::default().fg(ratatui::style::Color::Yellow));
 
     let inner = block.inner(popup_rect);

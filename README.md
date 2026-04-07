@@ -112,4 +112,8 @@ You already know this: don't put secrets directly in commands. Your shell histor
 - [ ] add hirachical settings for local -> project -> global 
 - [ ] merge saved and templating local -> project -> global
 
+### Bugs
+- [ ] setting window reactivity issue. out of bounds
+- [ ] trust should be kept when a user adds a command or changes settings. 
+- [ ] settings dont work until opened a second time... odd
 

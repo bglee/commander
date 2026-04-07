@@ -1,6 +1,7 @@
 {
   "settings": {
-    "default_view": "saved-only"
+    "default_view": "saved-only",
+    "max_window_height": ""
   },
   "commands": [
     "cargo build",
@@ -8,7 +9,8 @@
     "cargo build --release",
     "vim ~/.zshrc",
     "source ~/.zshrc",
-    "git push --tags"
+    "git push --tags",
+    "source out.sh"
   ],
   "templates": [
     {
