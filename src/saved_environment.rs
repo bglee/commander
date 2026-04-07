@@ -45,6 +45,31 @@ impl Template {
 pub struct Settings {
     #[serde(default)]
     pub default_view: String,
+    #[serde(default)]
+    pub max_window_height: String,
+}
+
+impl Settings {
+    /// Resolve the user's configured `max_window_height` to a concrete row
+    /// count for the current terminal. This is the minimum amount of room
+    /// commander will claim for its inline viewport; callers should still
+    /// grow the viewport to fill any additional space below the cursor so
+    /// it extends all the way to the bottom of the terminal when possible.
+    pub fn resolve_max_window_height(&self, term_height: u16) -> u16 {
+        let fallback = term_height / 2;
+        let trimmed = self.max_window_height.trim();
+        let raw = if trimmed.is_empty() {
+            fallback
+        } else if let Some(pct_str) = trimmed.strip_suffix('%') {
+            match pct_str.trim().parse::<u32>() {
+                Ok(pct) => ((term_height as u32 * pct) / 100) as u16,
+                Err(_) => fallback,
+            }
+        } else {
+            trimmed.parse::<u16>().unwrap_or(fallback)
+        };
+        raw.max(12).min(term_height.saturating_sub(1))
+    }
 }
 
 #[derive(Serialize, Deserialize, Default)]

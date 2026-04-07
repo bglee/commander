@@ -1,8 +1,7 @@
 use anyhow::Result;
 use crossterm::{
     event::{self, Event, KeyCode, KeyModifiers},
-    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
-    ExecutableCommand,
+    terminal::{disable_raw_mode, enable_raw_mode},
 };
 use ratatui::{
     backend::CrosstermBackend,
@@ -10,7 +9,7 @@ use ratatui::{
     style::{Modifier, Style},
     text::{Line, Span},
     widgets::{Block, Borders, Clear, HighlightSpacing, List, ListDirection, ListItem, Paragraph},
-    Frame, Terminal,
+    Frame, Terminal, TerminalOptions, Viewport,
 };
 use std::collections::HashMap;
 use std::io::{self, stderr, Write};
@@ -491,7 +490,7 @@ fn ui_template_create(
 fn ui_settings_modal(frame: &mut Frame, app_context: &mut AppContext) {
     let area = frame.area();
     let popup_width = (area.width / 2).max(40).min(area.width);
-    let popup_height = 7u16.min(area.height);
+    let popup_height = 8u16.min(area.height);
     let x = (area.width.saturating_sub(popup_width)) / 2;
     let y = (area.height.saturating_sub(popup_height)) / 2;
     let popup_rect = Rect::new(x, y, popup_width, popup_height);
@@ -509,7 +508,8 @@ fn ui_settings_modal(frame: &mut Frame, app_context: &mut AppContext) {
     let inner_layout = Layout::default()
         .direction(Direction::Vertical)
         .constraints(vec![
-            Constraint::Min(1), // setting row
+            Constraint::Min(1),    // default_view row
+            Constraint::Min(1),    // inline_height row
             Constraint::Length(1), // spacer
             Constraint::Length(1), // help bar
         ])
@@ -542,6 +542,23 @@ fn ui_settings_modal(frame: &mut Frame, app_context: &mut AppContext) {
     ]);
     frame.render_widget(Paragraph::new(setting_line), inner_layout[0]);
 
+    let raw_max_height = app_context
+        .saved_commands
+        .settings()
+        .max_window_height
+        .trim()
+        .to_string();
+    let max_height_display = if raw_max_height.is_empty() {
+        "50%".to_string()
+    } else {
+        raw_max_height
+    };
+    let max_height_line = Line::from(vec![
+        Span::styled("max_window_height: ", key_style),
+        Span::styled(max_height_display, value_style),
+    ]);
+    frame.render_widget(Paragraph::new(max_height_line), inner_layout[1]);
+
     let help_line = Line::from(vec![
         Span::styled("enter", key_style),
         Span::styled(" toggle  ", desc_style),
@@ -550,7 +567,7 @@ fn ui_settings_modal(frame: &mut Frame, app_context: &mut AppContext) {
         Span::styled("ctrl+q", key_style),
         Span::styled(" quit", desc_style),
     ]);
-    frame.render_widget(Paragraph::new(help_line), inner_layout[2]);
+    frame.render_widget(Paragraph::new(help_line), inner_layout[3]);
 }
 
 // ─── Main UI dispatch ────────────────────────────────────────────────────────
@@ -1051,10 +1068,54 @@ fn copy_to_clipboard(text: &str) {
     }
 }
 
-fn run_main_term_loop(commands: Vec<String>) -> Result<Option<String>> {
-    let mut terminal = Terminal::new(CrosstermBackend::new(stderr()))?;
-    terminal.clear()?;
+/// RAII guard that temporarily redirects fd 1 (stdout) to fd 2 (stderr).
+///
+/// Commander is invoked as `$(cmdr-recall)` in the shell helper, so its real
+/// stdout is a captured pipe. Crossterm's `cursor::position()` writes the
+/// `ESC [ 6 n` DSR query to stdout and then waits for the terminal's response,
+/// which means the query gets swallowed by the pipe and the read times out
+/// ("The cursor position could not be read within a normal duration").
+///
+/// Stderr is the real TTY (that's where our TUI already draws), so pointing
+/// fd 1 at fd 2 for the duration of the query lets the escape sequence reach
+/// the terminal. The response is read via `/dev/tty` thanks to crossterm's
+/// `use-dev-tty` feature, so no input plumbing is needed.
+struct StdoutToStderrGuard {
+    saved_fd: libc::c_int,
+}
 
+impl StdoutToStderrGuard {
+    fn new() -> io::Result<Self> {
+        // Flush any buffered Rust-side stdout before we swap the underlying fd.
+        let _ = io::stdout().flush();
+        unsafe {
+            let saved_fd = libc::dup(libc::STDOUT_FILENO);
+            if saved_fd < 0 {
+                return Err(io::Error::last_os_error());
+            }
+            if libc::dup2(libc::STDERR_FILENO, libc::STDOUT_FILENO) < 0 {
+                let err = io::Error::last_os_error();
+                libc::close(saved_fd);
+                return Err(err);
+            }
+            Ok(Self { saved_fd })
+        }
+    }
+}
+
+impl Drop for StdoutToStderrGuard {
+    fn drop(&mut self) {
+        // Flush any stdout writes that happened while redirected before
+        // restoring the original fd.
+        let _ = io::stdout().flush();
+        unsafe {
+            libc::dup2(self.saved_fd, libc::STDOUT_FILENO);
+            libc::close(self.saved_fd);
+        }
+    }
+}
+
+fn run_main_term_loop(commands: Vec<String>) -> Result<Option<String>> {
     let (saved_environment, initial_state) = match check_trust() {
         TrustStatus::NoFile => (SavedEnvironment::load(), AppState::Normal),
         TrustStatus::Trusted { contents } => {
@@ -1072,6 +1133,40 @@ fn run_main_term_loop(commands: Vec<String>) -> Result<Option<String>> {
                 file_hash: hash,
             },
         ),
+    };
+
+    let (_cols, term_height) = crossterm::terminal::size()?;
+    let max_window_height = saved_environment
+        .settings()
+        .resolve_max_window_height(term_height);
+
+    // Redirect stdout → stderr for the duration of cursor-position queries
+    // and Terminal construction. Crossterm's `cursor::position()` writes the
+    // DSR query to stdout, but commander's stdout is a captured pipe
+    // (`$(cmdr-recall)`), so without this redirect the query is swallowed and
+    // crossterm times out. Stderr is the real TTY, so pointing fd 1 at fd 2
+    // lets the escape reach the terminal; the response comes back via
+    // `/dev/tty` thanks to crossterm's `use-dev-tty` feature.
+    let mut terminal = {
+        let _stdout_guard = StdoutToStderrGuard::new()?;
+
+        // Pick the viewport height:
+        //   - If the cursor is high enough that more than `max_window_height`
+        //     rows remain below it, expand the viewport to fill all remaining
+        //     rows down to the bottom of the terminal.
+        //   - Otherwise (cursor is near the bottom), keep the full
+        //     `max_window_height`; ratatui will scroll scrollback up to make
+        //     room so the UI still renders in its entirety.
+        let (_cursor_col, cursor_row) = crossterm::cursor::position()?;
+        let remaining_rows = term_height.saturating_sub(cursor_row);
+        let viewport_height = max_window_height.max(remaining_rows).clamp(1, term_height);
+
+        Terminal::with_options(
+            CrosstermBackend::new(stderr()),
+            TerminalOptions {
+                viewport: Viewport::Inline(viewport_height),
+            },
+        )?
     };
 
 
@@ -1122,16 +1217,13 @@ fn run_main_term_loop(commands: Vec<String>) -> Result<Option<String>> {
             break;
         }
     }
+    terminal.clear()?;
     Ok(app_context.run_command)
 }
 
 pub fn app(commands: Vec<String>) -> Result<Option<String>> {
-    stderr().execute(EnterAlternateScreen)?;
     enable_raw_mode()?;
-
     let result_or_error = run_main_term_loop(commands);
-    stderr().execute(LeaveAlternateScreen)?;
     disable_raw_mode()?;
-
     result_or_error
 }
