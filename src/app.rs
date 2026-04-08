@@ -493,8 +493,9 @@ fn ui_settings_modal(frame: &mut Frame, app_context: &mut AppContext) {
     let area = frame.area();
     let popup_width = (area.width / 2).max(40).min(area.width);
     let popup_height = 8u16.min(area.height);
-    let x = (area.width.saturating_sub(popup_width)) / 2;
-    let y = (area.height.saturating_sub(popup_height)) / 2;
+    let x = area.x + (area.width.saturating_sub(popup_width)) / 2;
+    let y = area.y + (area.height.saturating_sub(popup_height)) / 2;
+
     let popup_rect = Rect::new(x, y, popup_width, popup_height);
 
     frame.render_widget(Clear, popup_rect);
