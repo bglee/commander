@@ -90,13 +90,6 @@ Commander's selected output gets `eval`'d by your shell with your full user perm
 You already know this: don't put secrets directly in commands. Your shell history records them, and Commander makes that history even more accessible. Saved commands in `.commander.json` are plaintext on disk. Use environment variables, config files, or a secret manager instead — never `--password=hunter2` inline.
 
 ## Todo
-- [x] Fix the fuzzy search
-- [x] Saved the commands
-- [x] Handle bash
-- [x] Build
-- [x] Create crate
-- [x] Clean up errors
-- [x] Clean up tests
 
 ### Package Work
 - [ ] Switch to release-please for automated version bumps (see [package_release.md] (package-release.md))
@@ -113,7 +106,6 @@ You already know this: don't put secrets directly in commands. Your shell histor
 - [ ] merge saved and templating local -> project -> global
 
 ### Bugs
-- [ ] setting window reactivity issue. out of bounds
 - [ ] trust should be kept when a user adds a command or changes settings. 
 - [ ] settings dont work until opened a second time... odd
 
